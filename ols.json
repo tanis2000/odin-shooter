@@ -1,0 +1,24 @@
+{
+    "$schema": "https://raw.githubusercontent.com/DanielGavin/ols/master/misc/ols.schema.json",
+    "enable_document_symbols": true,
+    "enable_hover": true,
+    "enable_snippets": true,
+    "collections": [
+        {
+            "name": "base",
+            "path": "/Users/tanis/.ovm/master/base"
+        },
+        {
+            "name": "core",
+            "path": "/Users/tanis/.ovm/master/core"
+        },
+        {
+            "name": "vendor",
+            "path": "/Users/tanis/.ovm/master/vendor"
+        },
+        {
+            "name": "main",
+            "path": "./src"
+        }
+    ]
+}

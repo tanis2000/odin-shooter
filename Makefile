@@ -1,22 +1,33 @@
-SOURCE_PKG := src
-WEB_KPG := web
-STACK_SIZE := 1048576
-HEAP_SIZE := 67108864
+# NOTE: changing this requires changing the same values in the `web/index.html`.
+INITIAL_MEMORY_PAGES := 2000
+MAX_MEMORY_PAGES     := 65536
+
+PAGE_SIZE := 65536
+INITIAL_MEMORY_BYTES := $(shell expr $(INITIAL_MEMORY_PAGES) \* $(PAGE_SIZE))
+MAX_MEMORY_BYTES     := $(shell expr $(MAX_MEMORY_PAGES) \* $(PAGE_SIZE))
+
+WGPU_JS    := $(shell odin root)/vendor/wgpu/wgpu.js
+RUNTIME_JS := $(shell odin root)/vendor/wasm/js/runtime.js
 
 run:
 	#rm -rf out/debug/desktop
 	mkdir -p out/debug/desktop
-	odin run $(SOURCE_PKG) -out:"out/debug/desktop/$(SOURCE_PKG)" -debug
+	odin run src -out:"out/debug/desktop/game" -debug
 
 build-release:
 	#rm -rf out/release
 	mkdir -p out/release/desktop
-	odin run $(SOURCE_PKG) -out:"out/release/desktop/$(SOURCE_PKG)"
+	odin run src -out:"out/release/desktop/game"
 
 build-web:
 	#rm -rf out/debug/web
 	mkdir -p out/debug/web
-	mkdir -p out/debug/.intermediate
-	odin build $(WEB_KPG) -target=freestanding_wasm32 -out:"out/debug/.intermediate/$(SOURCE_PKG)" -build-mode:obj -debug -show-system-calls
-	emcc -o out/debug/$(WEB_KPG)/index.html $(WEB_KPG)/main.c out/debug/.intermediate/$(SOURCE_PKG).wasm.o -sUSE_SDL2=1 -sGL_ENABLE_GET_PROC_ADDRESS -DWEB_BUILD -sSTACK_SIZE=$(STACK_SIZE) -sTOTAL_MEMORY=$(HEAP_SIZE) -sERROR_ON_UNDEFINED_SYMBOLS=0 --shell-file $(WEB_KPG)/shell.html
+	odin build src -target=js_wasm32 -out:"out/debug/web/game.wasm" -extra-linker-flags:"--export-table --import-memory --initial-memory=$(INITIAL_MEMORY_BYTES) --max-memory=$(MAX_MEMORY_BYTES)"
+	cp $(WGPU_JS) out/debug/web/wgpu.js
+	cp $(RUNTIME_JS) out/debug/web/runtime.js
+	cp web/index.html out/debug/web/index.html
+
+run-web:
+	echo "Starting server on port 8999"
+	python3 -m http.server -d ./out/debug/web 8999
 

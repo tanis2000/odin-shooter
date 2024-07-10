@@ -35,7 +35,7 @@ state := struct {
 	log_buf_len:     int,
 	log_buf_updated: bool,
 
-	mui_ctx: ^mui.Context,
+	mui_ctx: mui.Context,
 	bg: mui.Color,
 	os: OS,
 	renderer:        Renderer,
@@ -46,9 +46,8 @@ state := struct {
 }
 
 main :: proc() {
-	state.mui_ctx = new(mui.Context)
-	defer free(state.mui_ctx);
-	mui.init(state.mui_ctx)
+	state.ctx = context
+	mui.init(&state.mui_ctx)
 	state.mui_ctx.text_width = mui.default_atlas_text_width
 	state.mui_ctx.text_height = mui.default_atlas_text_height
 
@@ -77,8 +76,8 @@ main :: proc() {
 frame :: proc(dt: f32) {
 	free_all(context.temp_allocator)
 	//mui.begin(state.mui_ctx)
-	update_ui_input(state.mui_ctx)
-	test_window(state.mui_ctx)
+	update_ui_input(&state.mui_ctx)
+	test_window(&state.mui_ctx)
 	//mui.end(state.mui_ctx)
 	r_render()
 }

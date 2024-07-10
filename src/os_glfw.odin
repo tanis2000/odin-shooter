@@ -108,8 +108,8 @@ key_callback :: proc "c" (window: glfw.WindowHandle, key, scancode, action, mods
     }
 
     switch action {
-    case glfw.PRESS, glfw.REPEAT: mu.input_key_down(state.mui_ctx, mu_key)
-    case glfw.RELEASE:            mu.input_key_up  (state.mui_ctx, mu_key)
+    case glfw.PRESS, glfw.REPEAT: mu.input_key_down(&state.mui_ctx, mu_key)
+    case glfw.RELEASE:            mu.input_key_up  (&state.mui_ctx, mu_key)
     case:                         return
     }
 }
@@ -125,8 +125,8 @@ mouse_button_callback :: proc "c" (window: glfw.WindowHandle, key, action, mods:
     }
 
     switch action {
-    case glfw.PRESS, glfw.REPEAT: mu.input_mouse_down(state.mui_ctx, state.cursor.x, state.cursor.y, mu_key)
-    case glfw.RELEASE:            mu.input_mouse_up  (state.mui_ctx, state.cursor.x, state.cursor.y, mu_key)
+    case glfw.PRESS, glfw.REPEAT: mu.input_mouse_down(&state.mui_ctx, state.cursor.x, state.cursor.y, mu_key)
+    case glfw.RELEASE:            mu.input_mouse_up  (&state.mui_ctx, state.cursor.x, state.cursor.y, mu_key)
     }
 }
 
@@ -134,20 +134,20 @@ mouse_button_callback :: proc "c" (window: glfw.WindowHandle, key, action, mods:
 cursor_pos_callback :: proc "c" (window: glfw.WindowHandle, x, y: f64) {
     context = state.ctx
     state.cursor = {i32(math.round(x)), i32(math.round(y))}
-    mu.input_mouse_move(state.mui_ctx, state.cursor.x, state.cursor.y)
+    mu.input_mouse_move(&state.mui_ctx, state.cursor.x, state.cursor.y)
 }
 
 @(private="file")
 scroll_callback :: proc "c" (window: glfw.WindowHandle, x, y: f64) {
     context = state.ctx
-    mu.input_scroll(state.mui_ctx, -i32(math.round(x)), -i32(math.round(y)))
+    mu.input_scroll(&state.mui_ctx, -i32(math.round(x)), -i32(math.round(y)))
 }
 
 @(private="file")
 char_callback :: proc "c" (window: glfw.WindowHandle, ch: rune) {
     context = state.ctx
     bytes, size := utf8.encode_rune(ch)
-    mu.input_text(state.mui_ctx, string(bytes[:size]))
+    mu.input_text(&state.mui_ctx, string(bytes[:size]))
 }
 
 @(private="file")

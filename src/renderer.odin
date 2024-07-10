@@ -439,7 +439,7 @@ r_render :: proc() {
     }
 
     command_backing: ^mu.Command
-    for variant in mu.next_command_iterator(state.mui_ctx, &command_backing) {
+    for variant in mu.next_command_iterator(&state.mui_ctx, &command_backing) {
         switch cmd in variant {
         case ^mu.Command_Text: r_draw_text(cmd.str, cmd.pos, cmd.color)
         case ^mu.Command_Rect: r_draw_rect(cmd.rect, cmd.color)

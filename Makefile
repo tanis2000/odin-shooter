@@ -9,6 +9,8 @@ MAX_MEMORY_BYTES     := $(shell expr $(MAX_MEMORY_PAGES) \* $(PAGE_SIZE))
 WGPU_JS    := $(shell odin root)/vendor/wgpu/wgpu.js
 RUNTIME_JS := $(shell odin root)/vendor/wasm/js/runtime.js
 
+all: run
+
 run:
 	#rm -rf out/debug/desktop
 	mkdir -p out/debug/desktop
@@ -34,3 +36,4 @@ run-web:
 	echo "Starting server on port 8999"
 	python3 -m http.server -d ./out/debug/web 8999
 
+clean:

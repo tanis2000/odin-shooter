@@ -116,16 +116,16 @@ key_down_callback :: proc(e: js.Event) {
     js.event_prevent_default()
 
     if k, ok := KEY_MAP[e.data.key.code]; ok {
-        mu.input_key_down(state.mui_ctx, k)
+        mu.input_key_down(&state.mui_ctx, k)
     }
 
-    if .CTRL in state.mui_ctx.key_down_bits {
+    if .CTRL in &state.mui_ctx.key_down_bits {
         return
     }
 
     ch, size := utf8.decode_rune(e.data.key.key)
     if len(e.data.key.key) == size && unicode.is_print(ch) {
-        mu.input_text(state.mui_ctx, e.data.key.key)
+        mu.input_text(&state.mui_ctx, e.data.key.key)
     }
 }
 
@@ -134,7 +134,7 @@ key_up_callback :: proc(e: js.Event) {
     context = state.ctx
 
     if k, ok := KEY_MAP[e.data.key.code]; ok {
-        mu.input_key_up(state.mui_ctx, k)
+        mu.input_key_up(&state.mui_ctx, k)
     }
 
     js.event_prevent_default()
@@ -145,9 +145,9 @@ mouse_down_callback :: proc(e: js.Event) {
     context = state.ctx
 
     switch e.data.mouse.button {
-    case 0: mu.input_mouse_down(state.mui_ctx, state.cursor.x, state.cursor.y, .LEFT)
-    case 1: mu.input_mouse_down(state.mui_ctx, state.cursor.x, state.cursor.y, .MIDDLE)
-    case 2: mu.input_mouse_down(state.mui_ctx, state.cursor.x, state.cursor.y, .RIGHT)
+    case 0: mu.input_mouse_down(&state.mui_ctx, state.cursor.x, state.cursor.y, .LEFT)
+    case 1: mu.input_mouse_down(&state.mui_ctx, state.cursor.x, state.cursor.y, .MIDDLE)
+    case 2: mu.input_mouse_down(&state.mui_ctx, state.cursor.x, state.cursor.y, .RIGHT)
     }
 
     js.event_prevent_default()
@@ -158,9 +158,9 @@ mouse_up_callback :: proc(e: js.Event) {
     context = state.ctx
 
     switch e.data.mouse.button {
-    case 0: mu.input_mouse_up(state.mui_ctx, state.cursor.x, state.cursor.y, .LEFT)
-    case 1: mu.input_mouse_up(state.mui_ctx, state.cursor.x, state.cursor.y, .MIDDLE)
-    case 2: mu.input_mouse_up(state.mui_ctx, state.cursor.x, state.cursor.y, .RIGHT)
+    case 0: mu.input_mouse_up(&state.mui_ctx, state.cursor.x, state.cursor.y, .LEFT)
+    case 1: mu.input_mouse_up(&state.mui_ctx, state.cursor.x, state.cursor.y, .MIDDLE)
+    case 2: mu.input_mouse_up(&state.mui_ctx, state.cursor.x, state.cursor.y, .RIGHT)
     }
 
     js.event_prevent_default()
@@ -170,13 +170,13 @@ mouse_up_callback :: proc(e: js.Event) {
 mouse_move_callback :: proc(e: js.Event) {
     context = state.ctx
     state.cursor = {i32(e.data.mouse.offset.x), i32(e.data.mouse.offset.y)}
-    mu.input_mouse_move(state.mui_ctx, state.cursor.x, state.cursor.y)
+    mu.input_mouse_move(&state.mui_ctx, state.cursor.x, state.cursor.y)
 }
 
 @(private="file")
 scroll_callback :: proc(e: js.Event) {
     context = state.ctx
-    mu.input_scroll(state.mui_ctx, i32(e.data.wheel.delta.x), i32(e.data.wheel.delta.y))
+    mu.input_scroll(&state.mui_ctx, i32(e.data.wheel.delta.x), i32(e.data.wheel.delta.y))
 }
 
 @(private="file")

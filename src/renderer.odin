@@ -293,6 +293,7 @@ on_adapter_and_device :: proc() {
 
     wgpu.SurfaceConfigure(r.surface, &r.config)
 
+    post_init()
     os_run()
 }
 

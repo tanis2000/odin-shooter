@@ -47,6 +47,7 @@ state := struct {
 
 main :: proc() {
 	state.ctx = context
+	defer free(&state.mui_ctx);
 	mui.init(&state.mui_ctx)
 	state.mui_ctx.text_width = mui.default_atlas_text_width
 	state.mui_ctx.text_height = mui.default_atlas_text_height
@@ -55,6 +56,7 @@ main :: proc() {
 	state.screen_height = WINDOW_HEIGHT
 	os_init()
 	r_init_and_run()
+
 	// rl.InitWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "Shooter")
 	// rl.SetExitKey(.KEY_NULL)
 	// rl.SetTargetFPS(60)
@@ -71,6 +73,11 @@ main :: proc() {
 	// for !rl.WindowShouldClose() {
 	// 	update()
 	// }
+}
+
+post_init :: proc() {
+  atlas := #load("../assets/img/hero.png")
+  tex := load_texture_from_memory(atlas, default_texture_options())
 }
 
 frame :: proc(dt: f32) {

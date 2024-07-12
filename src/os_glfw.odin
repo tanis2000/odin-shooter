@@ -22,7 +22,7 @@ os_init :: proc() {
     }
 
     glfw.WindowHint(glfw.CLIENT_API, glfw.NO_API)
-    state.os.window = glfw.CreateWindow(960, 540, "ODIN / GLFW / MICROUI / WGPU", nil, nil)
+    state.os.window = glfw.CreateWindow(960, 540, "Shooter", nil, nil)
     assert(state.os.window != nil)
 
     glfw.SetKeyCallback(state.os.window, key_callback)

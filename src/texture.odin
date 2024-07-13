@@ -1,8 +1,8 @@
 package game
 
 import "core:bytes"
-import image "core:image/png"
 import "core:fmt"
+import image "core:image/png"
 import "vendor:wgpu"
 
 Texture :: struct {
@@ -20,19 +20,19 @@ TextureOptions :: struct {
 }
 
 default_texture_options :: proc() -> TextureOptions {
-  return TextureOptions {
-    format = .R8Unorm,
-    address_mode = .ClampToEdge,
-    filter = .Nearest,
-    storage_binding = false,
-  }
+	return TextureOptions {
+		format = .RGBA8Unorm,
+		address_mode = .ClampToEdge,
+		filter = .Nearest,
+		storage_binding = false,
+	}
 }
 
 load_texture_from_memory :: proc(data: []u8, options: TextureOptions) -> Texture {
 	img, err := image.load_from_bytes(data)
-  if err != nil {
-    fmt.println(err)
-  }
+	if err != nil {
+		fmt.println(err)
+	}
 	return create_texture(img, options)
 }
 
@@ -44,16 +44,19 @@ create_texture :: proc(img: ^image.Image, options: TextureOptions) -> Texture {
 	tex.handle = wgpu.DeviceCreateTexture(
 		r.device,
 		&{
+			label         = "texture loaded from disk",
 			usage         = {.TextureBinding, .CopyDst, .RenderAttachment},
 			dimension     = ._2D,
 			size          = {u32(img.width), u32(img.height), 1},
 			format        = options.format,
 			mipLevelCount = 1,
 			sampleCount   = 1,
-			//storage_binding = options.storage_binding, // no clue where this actually lives in
 		},
 	)
-	tex.view_handle = wgpu.TextureCreateView(tex.handle, nil)
+	tex.view_handle = wgpu.TextureCreateView(
+		tex.handle,
+		&{format = options.format, dimension = ._2D, arrayLayerCount = 1, mipLevelCount = 1},
+	)
 
 	tex.sampler_handle = wgpu.DeviceCreateSampler(
 		r.device,
@@ -75,8 +78,8 @@ create_texture :: proc(img: ^image.Image, options: TextureOptions) -> Texture {
 		r.queue,
 		&{texture = tex.handle},
 		raw_data(img.pixels.buf),
-		uint(img.width * img.height),
-		&{bytesPerRow = u32(img.width), rowsPerImage = u32(img.height)},
+		uint(img.width * 4 * img.height),
+		&{bytesPerRow = u32(img.width * 4), rowsPerImage = u32(img.height)},
 		&{u32(img.width), u32(img.height), 1},
 	)
 	return tex

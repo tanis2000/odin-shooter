@@ -14,7 +14,7 @@ all: run
 run:
 	#rm -rf out/debug/desktop
 	mkdir -p out/debug/desktop
-	odin run src -out:"out/debug/desktop/game" -debug
+	odin run src -out:"out/debug/desktop/game" -debug -define:WGPU_DEBUG=true
 
 build-release:
 	#rm -rf out/release/web

@@ -24,30 +24,32 @@ Entity :: struct {
 }
 
 state := struct {
-	ctx: runtime.Context,
-	screen_width: int,
-	screen_height: int,
+	ctx:             runtime.Context,
+	screen_width:    int,
+	screen_height:   int,
 	//current_keys: [dynamic]rl.KeyboardKey,
 	//previous_keys: [dynamic]rl.KeyboardKey,
-	quit_requested: bool,
-
-	log_buf:         [1<<16]byte,
+	quit_requested:  bool,
+	log_buf:         [1 << 16]byte,
 	log_buf_len:     int,
 	log_buf_updated: bool,
-
-	mui_ctx: mui.Context,
-	bg: mui.Color,
-	os: OS,
+	mui_ctx:         mui.Context,
+	bg:              mui.Color,
+	os:              OS,
 	renderer:        Renderer,
+	cursor:          [2]i32,
 
-    cursor:          [2]i32,
-}{
+  batcher:         Batcher,
+
+  tex:             Texture,
+  atlas: []u8,
+} {
 	bg = {90, 95, 100, 255},
 }
 
 main :: proc() {
 	state.ctx = context
-	defer free(&state.mui_ctx);
+	defer free(&state.mui_ctx)
 	mui.init(&state.mui_ctx)
 	state.mui_ctx.text_width = mui.default_atlas_text_width
 	state.mui_ctx.text_height = mui.default_atlas_text_height
@@ -76,16 +78,25 @@ main :: proc() {
 }
 
 post_init :: proc() {
-  atlas := #load("../assets/img/hero.png")
-  tex := load_texture_from_memory(atlas, default_texture_options())
+	state.atlas = #load("../assets/img/hero.png")
+	state.tex = load_texture_from_memory(state.atlas, default_texture_options())
+  state.batcher = b_init(1024)
 }
 
 frame :: proc(dt: f32) {
 	free_all(context.temp_allocator)
-	//mui.begin(state.mui_ctx)
 	update_ui_input(&state.mui_ctx)
 	test_window(&state.mui_ctx)
-	//mui.end(state.mui_ctx)
+	b_begin(
+		&state.batcher,
+		{
+			clear_color = {1, 1, 1, 1},
+		},
+	)
+	b_texture(&state.batcher, {0, 0, 0, 0}, state.tex, {})
+	b_end(&state.batcher, &state.renderer.const_buffer)
+  commands, _ := b_finish(&state.batcher)
+  b_submit(&state.batcher, commands)
 	r_render()
 }
 

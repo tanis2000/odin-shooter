@@ -5,21 +5,22 @@ import "core:math/linalg"
 import "vendor:wgpu"
 
 Batcher :: struct {
-	encoder:              wgpu.CommandEncoder,
-	vertices:             [dynamic]Vertex,
-	vertex_buffer_handle: wgpu.Buffer,
-	indices:              [dynamic]u32,
-	index_buffer_handle:  wgpu.Buffer,
-	ctx:                  BatcherContext,
-	vert_index:           u32,
-	quad_count:           u32,
-	start_count:          u32,
-	state:                BatcherState,
-	pipeline_handle:      wgpu.RenderPipeline,
-	bind_group_handle:    wgpu.BindGroup,
-	tex_view:             wgpu.TextureView,
-	back_buffer:          wgpu.SurfaceTexture,
-	back_buffer_view:     wgpu.TextureView,
+	encoder:                wgpu.CommandEncoder,
+	vertices:               [dynamic]Vertex,
+	vertex_buffer_handle:   wgpu.Buffer,
+	indices:                [dynamic]u32,
+	index_buffer_handle:    wgpu.Buffer,
+	ctx:                    BatcherContext,
+	vert_index:             u32,
+	quad_count:             u32,
+	start_count:            u32,
+	state:                  BatcherState,
+	pipeline_handle:        wgpu.RenderPipeline,
+	bind_group_handle:      wgpu.BindGroup,
+	tex_view:               wgpu.TextureView,
+	back_buffer:            wgpu.SurfaceTexture,
+	back_buffer_view:       wgpu.TextureView,
+	uniforms_buffer_handle: wgpu.Buffer,
 }
 
 BatcherContext :: struct {
@@ -90,7 +91,15 @@ b_init :: proc(max_quads: u32) -> Batcher {
 
 	index_buffer_handle := wgpu.DeviceCreateBuffer(state.renderer.device, &index_buffer_descriptor)
 
-
+	uniforms_buffer_handle := wgpu.DeviceCreateBuffer(
+		state.renderer.device,
+		&wgpu.BufferDescriptor {
+			label = "Batcher uniforms buffer",
+			usage = {.CopyDst, .Uniform},
+			size = size_of(matrix[4, 4]f32),
+		},
+	)
+	/*
 	texture := wgpu.DeviceCreateTexture(
 		state.renderer.device,
 		&{
@@ -103,14 +112,15 @@ b_init :: proc(max_quads: u32) -> Batcher {
 			sampleCount = 1,
 		},
 	)
+  */
 
-	tex_view := wgpu.TextureCreateView(texture)
+	tex_view := wgpu.TextureCreateView(state.tex.handle)
 
 	bind_group_layout := wgpu.DeviceCreateBindGroupLayout(
 		state.renderer.device,
 		&{
 			label = "Batcher bind group layout",
-			entryCount = 2,
+			entryCount = 3,
 			entries = raw_data(
 				[]wgpu.BindGroupLayoutEntry {
 					{binding = 0, visibility = {.Fragment}, sampler = {type = .Filtering}},
@@ -123,6 +133,11 @@ b_init :: proc(max_quads: u32) -> Batcher {
 							multisampled = false,
 						},
 					},
+					{
+						binding = 2,
+						visibility = {.Vertex},
+						buffer = {type = .Uniform, minBindingSize = size_of(matrix[4, 4]f32)},
+					},
 				},
 			),
 		},
@@ -133,11 +148,16 @@ b_init :: proc(max_quads: u32) -> Batcher {
 		&{
 			label = "Batcher bind group",
 			layout = bind_group_layout,
-			entryCount = 2,
+			entryCount = 3,
 			entries = raw_data(
 				[]wgpu.BindGroupEntry {
 					{binding = 0, sampler = state.tex.sampler_handle},
 					{binding = 1, textureView = tex_view},
+					{
+						binding = 2,
+						buffer = uniforms_buffer_handle,
+						size = size_of(matrix[4, 4]f32),
+					},
 				},
 			),
 		},
@@ -240,8 +260,22 @@ b_init :: proc(max_quads: u32) -> Batcher {
 		pipeline_handle = pipeline,
 		bind_group_handle = bind_group,
 		tex_view = tex_view,
+		uniforms_buffer_handle = uniforms_buffer_handle,
 	}
 }
+
+b_write_uniforms :: proc(b: Batcher) {
+	r := &state.renderer
+
+	// Transformation matrix to convert from screen to device pixels and scale based on DPI.
+	dpi := os_get_dpi()
+	width, height := os_get_render_bounds()
+	fw, fh := f32(width), f32(height)
+	transform := linalg.matrix_ortho3d(0, fw, fh, 0, -1, 1) * linalg.matrix4_scale(dpi)
+
+	wgpu.QueueWriteBuffer(r.queue, b.uniforms_buffer_handle, 0, &transform, size_of(transform))
+}
+
 
 b_begin :: proc(b: ^Batcher, ctx: BatcherContext) -> BatcherError {
 	fmt.println("begin")
@@ -323,6 +357,14 @@ b_append :: proc(b: ^Batcher, quad: Quad) -> BatcherError {
 	}
 	b.quad_count += 1
 	return .None
+}
+
+b_default_batcher_texture_options :: proc() -> BatcherTextureOptions {
+  return BatcherTextureOptions {
+    flip_x= false,
+    flip_y = false,
+    color = {1.0, 1.0, 1.0, 1.0},
+  }
 }
 
 b_texture :: proc(
@@ -463,6 +505,7 @@ b_finish :: proc(b: ^Batcher) -> (wgpu.CommandBuffer, BatcherError) {
 			raw_data(b.indices),
 			uint(b.quad_count * 6 * size_of(u32)),
 		)
+    b_write_uniforms(b^)
 		b.quad_count = 0
 		b.vert_index = 0
 		commands := wgpu.CommandEncoderFinish(b.encoder)
@@ -477,6 +520,7 @@ b_finish :: proc(b: ^Batcher) -> (wgpu.CommandBuffer, BatcherError) {
 b_submit :: proc(b: ^Batcher, commands: wgpu.CommandBuffer) {
 	wgpu.QueueSubmit(state.renderer.queue, {commands})
 	wgpu.CommandBufferRelease(commands)
+	wgpu.SurfacePresent(state.renderer.surface)
 	defer {
 		wgpu.TextureViewRelease(b.back_buffer_view)
 		wgpu.TextureRelease(b.back_buffer.texture)

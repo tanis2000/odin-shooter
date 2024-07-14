@@ -18,7 +18,7 @@ struct VertexOut {
     var pos = position;
 
 
-    output.position_clip = vec4(pos.xy, 0.0, 1.0);
+    output.position_clip = transform * vec4(pos.xy, 0.0, 1.0);
     output.position = pos;
     output.uv = uv;
     output.color = color;
@@ -28,6 +28,7 @@ struct VertexOut {
 
 @group(0) @binding(0) var diffuse_sampler: sampler;
 @group(0) @binding(1) var diffuse: texture_2d<f32>;
+@group(0) @binding(2) var<uniform> transform: mat4x4<f32>;
 
 @fragment fn fs_main(
     @location(0) position: vec3<f32>,
@@ -38,4 +39,5 @@ struct VertexOut {
     var base_color = textureSample(diffuse, diffuse_sampler, uv);
 
     return base_color * color;
+    //return vec4(1.0,0.0,0.0,1.0);
 }

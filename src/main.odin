@@ -90,14 +90,18 @@ frame :: proc(dt: f32) {
 	b_begin(
 		&state.batcher,
 		{
-			clear_color = {1, 1, 1, 1},
+			clear_color = {0.25, 0.65, 0.45, 1},
 		},
 	)
-	b_texture(&state.batcher, {0, 0, 0, 0}, state.tex, {})
+  opts := b_default_batcher_texture_options()
+  opts.flip_y = true
+  opts.flip_x = true
+	b_texture(&state.batcher, {0, 0, 0, 0}, state.tex, opts)
 	b_end(&state.batcher, &state.renderer.const_buffer)
   commands, _ := b_finish(&state.batcher)
   b_submit(&state.batcher, commands)
-	r_render()
+	// Uncomment this to enable again the UI. Will need to fix this up to draw both on the same surface, though
+  //r_render()
 }
 
 vertex_source := `#version 330 core

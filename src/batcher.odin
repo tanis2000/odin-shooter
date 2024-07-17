@@ -56,7 +56,7 @@ BatcherTextureOptions :: struct {
 	data_2: f32,
 }
 
-b_init :: proc(max_quads: u32) -> Batcher {
+b_init :: proc(max_quads: u32, tex_view: wgpu.TextureView) -> Batcher {
 	fmt.println("init")
 	vertices: [dynamic]Vertex = make([dynamic]Vertex, max_quads * 4)
 	indices: [dynamic]u32 = make([dynamic]u32, max_quads * 6)
@@ -99,22 +99,7 @@ b_init :: proc(max_quads: u32) -> Batcher {
 			size = size_of(matrix[4, 4]f32),
 		},
 	)
-	/*
-	texture := wgpu.DeviceCreateTexture(
-		state.renderer.device,
-		&{
-			label = "Batcher texture",
-			usage = {.TextureBinding, .CopyDst},
-			dimension = ._2D,
-			size = {u32(state.tex.image.width), u32(state.tex.image.height), 1},
-			format = .RGBA8Unorm,
-			mipLevelCount = 1,
-			sampleCount = 1,
-		},
-	)
-  */
-
-	tex_view := wgpu.TextureCreateView(state.tex.handle)
+	//tex_view := wgpu.TextureCreateView(state.tex.handle)
 
 	bind_group_layout := wgpu.DeviceCreateBindGroupLayout(
 		state.renderer.device,
@@ -360,11 +345,7 @@ b_append :: proc(b: ^Batcher, quad: Quad) -> BatcherError {
 }
 
 b_default_batcher_texture_options :: proc() -> BatcherTextureOptions {
-  return BatcherTextureOptions {
-    flip_x= false,
-    flip_y = false,
-    color = {1.0, 1.0, 1.0, 1.0},
-  }
+	return BatcherTextureOptions{flip_x = false, flip_y = false, color = {1.0, 1.0, 1.0, 1.0}}
 }
 
 b_texture :: proc(
@@ -412,6 +393,62 @@ b_texture :: proc(
 			},
 		},
 	}
+	b_append(b, quad)
+	return .None
+}
+
+b_quad :: proc(
+	b: ^Batcher,
+	rect: [4]f32,
+  depth: f32,
+  rotation: f32,
+	t: Texture,
+	options: BatcherTextureOptions,
+) -> BatcherError {
+
+	width: f32 = rect[2]
+	height: f32 = rect[3]
+	pos := linalg.round(rect)
+
+	color: [4]f32 = {1.0, 1.0, 1.0, 1.0}
+	for i := 0; i < 4; i += 1 {
+		color[i] = options.color[i]
+	}
+	max: f32 = !options.flip_y ? 0.5 : 0.5
+	min: f32 = !options.flip_y ? 0.5 : 0.5
+
+	quad: Quad = {
+		vertices = {
+			{
+				position = {pos[0], pos[1] + height, depth},
+				uv = {options.flip_x ? max : min, min},
+				color = color,
+				data = {options.data_0, options.data_1, options.data_2},
+			},
+			{
+				position = {pos[0] + width, pos[1] + height, depth},
+				uv = {options.flip_x ? min : max, min},
+				color = color,
+				data = {options.data_0, options.data_1, options.data_2},
+			},
+			{
+				position = {pos[0] + width, pos[1], depth},
+				uv = {options.flip_x ? min : max, max},
+				color = color,
+				data = {options.data_0, options.data_1, options.data_2},
+			},
+			{
+				position = {pos[0], pos[1], depth},
+				uv = {options.flip_x ? max : min, max},
+				color = color,
+				data = {options.data_0, options.data_1, options.data_2},
+			},
+		},
+	}
+
+  if rotation > 0 || rotation < 0 {
+    q_rotate(&quad, rotation, rect.x, rect.y, 0, 0)
+  }
 	b_append(b, quad)
 	return .None
 }
@@ -505,7 +542,7 @@ b_finish :: proc(b: ^Batcher) -> (wgpu.CommandBuffer, BatcherError) {
 			raw_data(b.indices),
 			uint(b.quad_count * 6 * size_of(u32)),
 		)
-    b_write_uniforms(b^)
+		b_write_uniforms(b^)
 		b.quad_count = 0
 		b.vert_index = 0
 		commands := wgpu.CommandEncoderFinish(b.encoder)

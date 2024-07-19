@@ -12,7 +12,8 @@ Batcher :: struct {
 	index_buffer_handle:    wgpu.Buffer,
 	ctx:                    BatcherContext,
 	vert_index:             u32,
-	quad_count:             u32,
+	idx_index:              u32,
+	tri_count:              u32,
 	start_count:            u32,
 	state:                  BatcherState,
 	pipeline_handle:        wgpu.RenderPipeline,
@@ -56,11 +57,12 @@ BatcherTextureOptions :: struct {
 	data_2: f32,
 }
 
-b_init :: proc(max_quads: u32, tex_view: wgpu.TextureView) -> Batcher {
+b_init :: proc(max_tris: u32, tex_view: wgpu.TextureView) -> Batcher {
 	fmt.println("init")
-	vertices: [dynamic]Vertex = make([dynamic]Vertex, max_quads * 4)
-	indices: [dynamic]u32 = make([dynamic]u32, max_quads * 6)
-	i: u32 = 0
+	vertices: [dynamic]Vertex = make([dynamic]Vertex, max_tris * 3)
+	indices: [dynamic]u32 = make([dynamic]u32, max_tris * 6)
+	/*
+  i: u32 = 0
 	for i < max_quads {
 		indices[i * 2 * 3 + 0] = i * 4 + 0
 		indices[i * 2 * 3 + 1] = i * 4 + 1
@@ -70,7 +72,7 @@ b_init :: proc(max_quads: u32, tex_view: wgpu.TextureView) -> Batcher {
 		indices[i * 2 * 3 + 5] = i * 4 + 3
 		i += 1
 	}
-
+*/
 
 	vertex_buffer_descriptor: wgpu.BufferDescriptor = {
 		label = "Batcher vertex buffer",
@@ -269,7 +271,7 @@ b_begin :: proc(b: ^Batcher, ctx: BatcherContext) -> BatcherError {
 	}
 	b.ctx = ctx
 	b.state = .Progress
-	b.start_count = b.quad_count
+	b.start_count = b.tri_count
 	if b.encoder == nil {
 		fmt.println("Batcher: creating new encoder")
 		b.encoder = wgpu.DeviceCreateCommandEncoder(state.renderer.device, nil)
@@ -278,18 +280,19 @@ b_begin :: proc(b: ^Batcher, ctx: BatcherContext) -> BatcherError {
 }
 
 b_has_capacity :: proc(b: Batcher) -> bool {
-	return int(b.quad_count * 4) < len(b.vertices) - 1
+	return int(b.tri_count * 3) < len(b.vertices) - 1
 }
 
-b_resize :: proc(b: ^Batcher, max_quads: u32) -> BatcherError {
-	if max_quads <= b.quad_count {
+b_resize :: proc(b: ^Batcher, max_tris: u32) -> BatcherError {
+	if max_tris <= b.tri_count {
 		return .Buffer_Too_Small
 	}
 
 	fmt.println("resizing")
 
-	resize(&b.vertices, max_quads * 4)
-	resize(&b.indices, max_quads * 6)
+	resize(&b.vertices, max_tris * 3)
+	resize(&b.indices, max_tris * 6)
+	/*
 	i: u32 = 0
 	for i < max_quads {
 		b.indices[i * 2 * 3 + 0] = i * 4 + 0
@@ -300,6 +303,7 @@ b_resize :: proc(b: ^Batcher, max_quads: u32) -> BatcherError {
 		b.indices[i * 2 * 3 + 5] = i * 4 + 3
 		i += 1
 	}
+  */
 
 	wgpu.BufferDestroy(b.vertex_buffer_handle)
 	wgpu.BufferDestroy(b.index_buffer_handle)
@@ -329,18 +333,58 @@ b_resize :: proc(b: ^Batcher, max_quads: u32) -> BatcherError {
 	return .None
 }
 
-b_append :: proc(b: ^Batcher, quad: Quad) -> BatcherError {
+b_append_quad :: proc(b: ^Batcher, quad: Quad) -> BatcherError {
 	if b.state == .Idle {
 		return .Call_Begin_First
 	}
 	if !b_has_capacity(b^) {
-		b_resize(b, b.quad_count * 2)
+		b_resize(b, b.tri_count * 2)
 	}
-	for vertex in quad.vertices {
-		b.vertices[b.vert_index] = vertex
-		b.vert_index += 1
+	b.vertices[b.vert_index] = quad.vertices[0]
+	b.vert_index += 1
+	b.vertices[b.vert_index] = quad.vertices[1]
+	b.vert_index += 1
+	b.vertices[b.vert_index] = quad.vertices[3]
+	b.vert_index += 1
+	b.vertices[b.vert_index] = quad.vertices[1]
+	b.vert_index += 1
+	b.vertices[b.vert_index] = quad.vertices[2]
+	b.vert_index += 1
+	b.vertices[b.vert_index] = quad.vertices[3]
+	b.vert_index += 1
+
+	b.tri_count += 2
+	i := b.vert_index - 6
+	b.indices[b.idx_index + 0] = i + 0
+	b.indices[b.idx_index + 1] = i + 1
+	b.indices[b.idx_index + 2] = i + 2
+	b.indices[b.idx_index + 3] = i + 3
+	b.indices[b.idx_index + 4] = i + 4
+	b.indices[b.idx_index + 5] = i + 5
+	b.idx_index += 6
+	return .None
+}
+
+b_append_tri :: proc(b: ^Batcher, tri: Triangle) -> BatcherError {
+	if b.state == .Idle {
+		return .Call_Begin_First
 	}
-	b.quad_count += 1
+	if !b_has_capacity(b^) {
+		b_resize(b, b.tri_count * 2)
+	}
+	b.vertices[b.vert_index] = tri.vertices[0]
+	b.vert_index += 1
+	b.vertices[b.vert_index] = tri.vertices[1]
+	b.vert_index += 1
+	b.vertices[b.vert_index] = tri.vertices[2]
+	b.vert_index += 1
+
+	b.tri_count += 1
+	i := b.vert_index - 3
+	b.indices[b.idx_index + 0] = i + 0
+	b.indices[b.idx_index + 1] = i + 1
+	b.indices[b.idx_index + 2] = i + 2
+	b.idx_index += 3
 	return .None
 }
 
@@ -365,7 +409,7 @@ b_texture :: proc(
 	max: f32 = !options.flip_y ? 1.0 : 0.0
 	min: f32 = !options.flip_y ? 0.0 : 1.0
 
-	quad: Quad = {
+	quad := Quad {
 		vertices = {
 			{
 				position = {pos[0], pos[1] + height, pos[2]},
@@ -393,15 +437,15 @@ b_texture :: proc(
 			},
 		},
 	}
-	b_append(b, quad)
+	b_append_quad(b, quad)
 	return .None
 }
 
 b_quad :: proc(
 	b: ^Batcher,
 	rect: [4]f32,
-  depth: f32,
-  rotation: f32,
+	depth: f32,
+	rotation: f32,
 	t: Texture,
 	options: BatcherTextureOptions,
 ) -> BatcherError {
@@ -417,7 +461,7 @@ b_quad :: proc(
 	max: f32 = !options.flip_y ? 0.5 : 0.5
 	min: f32 = !options.flip_y ? 0.5 : 0.5
 
-	quad: Quad = {
+	quad := Quad {
 		vertices = {
 			{
 				position = {pos[0], pos[1] + height, depth},
@@ -446,12 +490,60 @@ b_quad :: proc(
 		},
 	}
 
-  if rotation > 0 || rotation < 0 {
-    q_rotate(&quad, rotation, rect.x, rect.y, 0, 0)
-  }
-	b_append(b, quad)
+	if rotation > 0 || rotation < 0 {
+		q_rotate(&quad, rotation, rect.x, rect.y, 0, 0)
+	}
+	b_append_quad(b, quad)
 	return .None
 }
+
+b_tri :: proc(
+	b: ^Batcher,
+	v0: [2]f32,
+	v1: [2]f32,
+	v2: [2]f32,
+	depth: f32,
+	rotation: f32,
+	t: Texture,
+	options: BatcherTextureOptions,
+) -> BatcherError {
+	color: [4]f32 = {1.0, 1.0, 1.0, 1.0}
+	for i := 0; i < 4; i += 1 {
+		color[i] = options.color[i]
+	}
+	max: f32 = !options.flip_y ? 0.5 : 0.5
+	min: f32 = !options.flip_y ? 0.5 : 0.5
+
+	tri := Triangle {
+		vertices = {
+			{
+				position = {v0.x, v0.y, depth},
+				uv = {options.flip_x ? max : min, min},
+				color = color,
+				data = {options.data_0, options.data_1, options.data_2},
+			},
+			{
+				position = {v1.x, v1.y, depth},
+				uv = {options.flip_x ? min : max, min},
+				color = color,
+				data = {options.data_0, options.data_1, options.data_2},
+			},
+			{
+				position = {v2.x, v2.y, depth},
+				uv = {options.flip_x ? min : max, max},
+				color = color,
+				data = {options.data_0, options.data_1, options.data_2},
+			},
+		},
+	}
+
+	if rotation > 0 || rotation < 0 {
+		t_rotate(&tri, rotation)
+	}
+	b_append_tri(b, tri)
+	return .None
+}
+
 
 // TODO: add procs for sprites
 
@@ -461,8 +553,8 @@ b_end :: proc(b: ^Batcher, buffer: ^wgpu.Buffer) -> BatcherError {
 	}
 	b.state = .Idle
 
-	quad_count := b.quad_count - b.start_count
-	if quad_count < 1 {
+	tri_count := b.tri_count - b.start_count
+	if tri_count < 1 {
 		return .None
 	}
 
@@ -521,7 +613,7 @@ b_end :: proc(b: ^Batcher, buffer: ^wgpu.Buffer) -> BatcherError {
 
 		wgpu.RenderPassEncoderSetBindGroup(pass, 0, b.bind_group_handle)
 
-		wgpu.RenderPassEncoderDrawIndexed(pass, quad_count * 6, 1, b.start_count * 6, 0, 0)
+		wgpu.RenderPassEncoderDrawIndexed(pass, b.vert_index, 1, b.start_count, 0, 0)
 	}
 	return .None
 }
@@ -533,18 +625,19 @@ b_finish :: proc(b: ^Batcher) -> (wgpu.CommandBuffer, BatcherError) {
 			b.vertex_buffer_handle,
 			0,
 			raw_data(b.vertices),
-			uint(b.quad_count * 4 * size_of(Vertex)),
+			uint(b.tri_count * 3 * size_of(Vertex)),
 		)
 		wgpu.QueueWriteBuffer(
 			state.renderer.queue,
 			b.index_buffer_handle,
 			0,
 			raw_data(b.indices),
-			uint(b.quad_count * 6 * size_of(u32)),
+			uint(b.vert_index * size_of(u32)),
 		)
 		b_write_uniforms(b^)
-		b.quad_count = 0
+		b.tri_count = 0
 		b.vert_index = 0
+		b.idx_index = 0
 		commands := wgpu.CommandEncoderFinish(b.encoder)
 		wgpu.CommandEncoderRelease(b.encoder)
 		b.encoder = nil

@@ -16,17 +16,13 @@ Batcher :: struct {
 	tri_count:              u32,
 	start_count:            u32,
 	state:                  BatcherState,
-	pipeline_handle:        wgpu.RenderPipeline,
-	bind_group_handle:      wgpu.BindGroup,
-	tex_view:               wgpu.TextureView,
 	back_buffer:            wgpu.SurfaceTexture,
 	back_buffer_view:       wgpu.TextureView,
-	uniforms_buffer_handle: wgpu.Buffer,
 }
 
 BatcherContext :: struct {
-	//pipeline_handle:   wgpu.RenderPipeline,
-	//bind_group_randle: wgpu.BindGroup,
+	pipeline_handle:   wgpu.RenderPipeline,
+	bind_group_handle: wgpu.BindGroup,
 	// If the output_handle is null, then it will render to the back buffer
 	// otherwise it will render to the offscreen texture
 	output_handle: wgpu.TextureView,
@@ -57,24 +53,12 @@ BatcherTextureOptions :: struct {
 	data_2: f32,
 }
 
-b_init :: proc(max_tris: u32, tex_view: wgpu.TextureView) -> Batcher {
+b_init :: proc(max_tris: u32) -> Batcher {
 	fmt.println("init")
 	vertices: [dynamic]Vertex = make([dynamic]Vertex, max_tris * 3)
 	indices: [dynamic]u32 = make([dynamic]u32, max_tris * 6)
-	/*
-  i: u32 = 0
-	for i < max_quads {
-		indices[i * 2 * 3 + 0] = i * 4 + 0
-		indices[i * 2 * 3 + 1] = i * 4 + 1
-		indices[i * 2 * 3 + 2] = i * 4 + 3
-		indices[i * 2 * 3 + 3] = i * 4 + 1
-		indices[i * 2 * 3 + 4] = i * 4 + 2
-		indices[i * 2 * 3 + 5] = i * 4 + 3
-		i += 1
-	}
-*/
 
-	vertex_buffer_descriptor: wgpu.BufferDescriptor = {
+  vertex_buffer_descriptor: wgpu.BufferDescriptor = {
 		label = "Batcher vertex buffer",
 		usage = {.CopyDst, .Vertex},
 		size  = u64(len(vertices) * size_of(Vertex)),
@@ -93,176 +77,13 @@ b_init :: proc(max_tris: u32, tex_view: wgpu.TextureView) -> Batcher {
 
 	index_buffer_handle := wgpu.DeviceCreateBuffer(state.renderer.device, &index_buffer_descriptor)
 
-	uniforms_buffer_handle := wgpu.DeviceCreateBuffer(
-		state.renderer.device,
-		&wgpu.BufferDescriptor {
-			label = "Batcher uniforms buffer",
-			usage = {.CopyDst, .Uniform},
-			size = size_of(matrix[4, 4]f32),
-		},
-	)
-	//tex_view := wgpu.TextureCreateView(state.tex.handle)
-
-	bind_group_layout := wgpu.DeviceCreateBindGroupLayout(
-		state.renderer.device,
-		&{
-			label = "Batcher bind group layout",
-			entryCount = 3,
-			entries = raw_data(
-				[]wgpu.BindGroupLayoutEntry {
-					{binding = 0, visibility = {.Fragment}, sampler = {type = .Filtering}},
-					{
-						binding = 1,
-						visibility = {.Fragment},
-						texture = {
-							sampleType = .Float,
-							viewDimension = ._2D,
-							multisampled = false,
-						},
-					},
-					{
-						binding = 2,
-						visibility = {.Vertex},
-						buffer = {type = .Uniform, minBindingSize = size_of(matrix[4, 4]f32)},
-					},
-				},
-			),
-		},
-	)
-
-	bind_group := wgpu.DeviceCreateBindGroup(
-		state.renderer.device,
-		&{
-			label = "Batcher bind group",
-			layout = bind_group_layout,
-			entryCount = 3,
-			entries = raw_data(
-				[]wgpu.BindGroupEntry {
-					{binding = 0, sampler = state.tex.sampler_handle},
-					{binding = 1, textureView = tex_view},
-					{
-						binding = 2,
-						buffer = uniforms_buffer_handle,
-						size = size_of(matrix[4, 4]f32),
-					},
-				},
-			),
-		},
-	)
-
-	module := wgpu.DeviceCreateShaderModule(
-		state.renderer.device,
-		&{
-			label = "Batcher diffuse shader module",
-			nextInChain = &wgpu.ShaderModuleWGSLDescriptor {
-				sType = .ShaderModuleWGSLDescriptor,
-				code = #load("diffuse.wgsl"),
-			},
-		},
-	)
-
-	pipeline_layout := wgpu.DeviceCreatePipelineLayout(
-		state.renderer.device,
-		&{
-			label = "Batcher pipeline layout",
-			bindGroupLayoutCount = 1,
-			bindGroupLayouts = &bind_group_layout,
-		},
-	)
-	pipeline := wgpu.DeviceCreateRenderPipeline(
-		state.renderer.device,
-		&{
-			label = "Batcher render pipeline",
-			layout = pipeline_layout,
-			vertex = {
-				module = module,
-				entryPoint = "vs_main",
-				bufferCount = 1,
-				buffers = raw_data(
-					[]wgpu.VertexBufferLayout {
-						{
-							arrayStride = size_of(Vertex),
-							stepMode = .Vertex,
-							attributeCount = 4,
-							attributes = raw_data(
-								[]wgpu.VertexAttribute {
-									{
-										format = .Float32x3,
-										offset = u64(offset_of(Vertex, position)),
-										shaderLocation = 0,
-									},
-									{
-										format = .Float32x2,
-										offset = u64(offset_of(Vertex, uv)),
-										shaderLocation = 1,
-									},
-									{
-										format = .Float32x4,
-										offset = u64(offset_of(Vertex, color)),
-										shaderLocation = 2,
-									},
-									{
-										format = .Float32x3,
-										offset = u64(offset_of(Vertex, data)),
-										shaderLocation = 3,
-									},
-								},
-							),
-						},
-					},
-				),
-			},
-			fragment = &{
-				module = module,
-				entryPoint = "fs_main",
-				targetCount = 1,
-				targets = &wgpu.ColorTargetState {
-					format = .BGRA8Unorm,
-					blend = &{
-						alpha = {
-							srcFactor = .SrcAlpha,
-							dstFactor = .OneMinusSrcAlpha,
-							operation = .Add,
-						},
-						color = {
-							srcFactor = .SrcAlpha,
-							dstFactor = .OneMinusSrcAlpha,
-							operation = .Add,
-						},
-					},
-					writeMask = wgpu.ColorWriteMaskFlags_All,
-				},
-			},
-			primitive = {topology = .TriangleList, cullMode = .None},
-			multisample = {count = 1, mask = 0xFFFFFFFF},
-		},
-	)
-
-
 	return Batcher {
 		vertices = vertices,
 		vertex_buffer_handle = vertex_buffer_handle,
 		indices = indices,
 		index_buffer_handle = index_buffer_handle,
-		pipeline_handle = pipeline,
-		bind_group_handle = bind_group,
-		tex_view = tex_view,
-		uniforms_buffer_handle = uniforms_buffer_handle,
 	}
 }
-
-b_write_uniforms :: proc(b: Batcher) {
-	r := &state.renderer
-
-	// Transformation matrix to convert from screen to device pixels and scale based on DPI.
-	dpi := os_get_dpi()
-	width, height := os_get_render_bounds()
-	fw, fh := f32(width), f32(height)
-	transform := linalg.matrix_ortho3d(0, fw, fh, 0, -1, 1) * linalg.matrix4_scale(dpi)
-
-	wgpu.QueueWriteBuffer(r.queue, b.uniforms_buffer_handle, 0, &transform, size_of(transform))
-}
-
 
 b_begin :: proc(b: ^Batcher, ctx: BatcherContext) -> BatcherError {
 	fmt.println("begin")
@@ -292,18 +113,6 @@ b_resize :: proc(b: ^Batcher, max_tris: u32) -> BatcherError {
 
 	resize(&b.vertices, max_tris * 3)
 	resize(&b.indices, max_tris * 6)
-	/*
-	i: u32 = 0
-	for i < max_quads {
-		b.indices[i * 2 * 3 + 0] = i * 4 + 0
-		b.indices[i * 2 * 3 + 1] = i * 4 + 1
-		b.indices[i * 2 * 3 + 2] = i * 4 + 3
-		b.indices[i * 2 * 3 + 3] = i * 4 + 1
-		b.indices[i * 2 * 3 + 4] = i * 4 + 2
-		b.indices[i * 2 * 3 + 5] = i * 4 + 3
-		i += 1
-	}
-  */
 
 	wgpu.BufferDestroy(b.vertex_buffer_handle)
 	wgpu.BufferDestroy(b.index_buffer_handle)
@@ -547,7 +356,7 @@ b_tri :: proc(
 
 // TODO: add procs for sprites
 
-b_end :: proc(b: ^Batcher, buffer: ^wgpu.Buffer) -> BatcherError {
+b_end :: proc(b: ^Batcher, uniforms: Uniform, buffer: ^wgpu.Buffer) -> BatcherError {
 	if b.state == .Idle {
 		return .End_Called_Twice
 	}
@@ -557,6 +366,12 @@ b_end :: proc(b: ^Batcher, buffer: ^wgpu.Buffer) -> BatcherError {
 	if tri_count < 1 {
 		return .None
 	}
+
+  switch &u in uniforms {
+  case DiffuseUniform:
+	  wgpu.QueueWriteBuffer(state.renderer.queue, buffer^, 0, &u, size_of(u))
+
+  }
 
 	passLabel: {
 		encoder := b.encoder
@@ -576,7 +391,7 @@ b_end :: proc(b: ^Batcher, buffer: ^wgpu.Buffer) -> BatcherError {
 		color_attachments: []wgpu.RenderPassColorAttachment = {
 			{
 				view = b.ctx.output_handle != nil ? b.ctx.output_handle : back_buffer_view,
-				loadOp = .Clear,
+				loadOp = b.ctx.clear_color.a == 0 ? .Load : .Clear, //.Load,
 				storeOp = .Store,
 				clearValue = b.ctx.clear_color,
 			},
@@ -609,9 +424,9 @@ b_end :: proc(b: ^Batcher, buffer: ^wgpu.Buffer) -> BatcherError {
 			0,
 			wgpu.BufferGetSize(b.index_buffer_handle),
 		)
-		wgpu.RenderPassEncoderSetPipeline(pass, b.pipeline_handle)
+		wgpu.RenderPassEncoderSetPipeline(pass, b.ctx.pipeline_handle)
 
-		wgpu.RenderPassEncoderSetBindGroup(pass, 0, b.bind_group_handle)
+		wgpu.RenderPassEncoderSetBindGroup(pass, 0, b.ctx.bind_group_handle)
 
 		wgpu.RenderPassEncoderDrawIndexed(pass, b.vert_index, 1, b.start_count, 0, 0)
 	}
@@ -634,7 +449,6 @@ b_finish :: proc(b: ^Batcher) -> (wgpu.CommandBuffer, BatcherError) {
 			raw_data(b.indices),
 			uint(b.vert_index * size_of(u32)),
 		)
-		b_write_uniforms(b^)
 		b.tri_count = 0
 		b.vert_index = 0
 		b.idx_index = 0

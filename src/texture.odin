@@ -9,7 +9,7 @@ Texture :: struct {
 	handle:         wgpu.Texture,
 	view_handle:    wgpu.TextureView,
 	sampler_handle: wgpu.Sampler,
-	image:          ^image.Image,
+	image:          image.Image,
 }
 
 TextureOptions :: struct {
@@ -33,10 +33,10 @@ load_texture_from_memory :: proc(data: []u8, options: TextureOptions) -> Texture
 	if err != nil {
 		fmt.println(err)
 	}
-	return create_texture(img, options)
+	return create_texture(img^, options)
 }
 
-create_texture :: proc(img: ^image.Image, options: TextureOptions) -> Texture {
+create_texture :: proc(img: image.Image, options: TextureOptions) -> Texture {
 	r := &state.renderer
 	tex: Texture
 	tex.image = img
@@ -84,3 +84,16 @@ create_texture :: proc(img: ^image.Image, options: TextureOptions) -> Texture {
 	)
 	return tex
 }
+
+t_create_empty :: proc(width: u32, height: u32, opts: TextureOptions) -> Texture {
+  img : image.Image = {
+    width = int(width),
+    height = int(height),
+    channels = 4,
+    depth = 8,
+  }
+  buf := make([]byte, width * height)
+  bytes.buffer_init(&img.pixels, buf)
+  return create_texture(img, opts)
+}
+

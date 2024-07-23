@@ -9,6 +9,8 @@ MAX_MEMORY_BYTES     := $(shell expr $(MAX_MEMORY_PAGES) \* $(PAGE_SIZE))
 WGPU_JS    := $(shell odin root)/vendor/wgpu/wgpu.js
 RUNTIME_JS := $(shell odin root)/vendor/wasm/js/runtime.js
 
+export RUST_BACKTRACE = full
+
 all: run
 
 run:

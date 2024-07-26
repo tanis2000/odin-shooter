@@ -63,6 +63,9 @@ state := struct {
 	pixel_atlas:             []u8,
 	// Final image Batcher 
 	final_batcher:           Batcher,
+
+	// UI
+	ui:                      Ui,
 } {
 	bg = {90, 95, 100, 255},
 }
@@ -149,6 +152,11 @@ frame :: proc(dt: f32) {
 	commands, _ = b_finish(&state.shapes_batcher)
 	b_submit(&state.shapes_batcher, commands)
 
+  // UI
+  ui_clear({0, 0, 0, 0}, state.diffuse_output.view_handle)
+  ui_bind()
+  ui_render()
+  ui_submit()
 
 	// Render the diffuse stuff to the framebuffer surface
 	b_begin(
@@ -170,4 +178,5 @@ frame :: proc(dt: f32) {
 	b_submit(&state.final_batcher, commands)
 	// Uncomment this to enable again the UI. Will need to fix this up to draw both on the same surface, though
 	//r_render()
+  //r_present()
 }

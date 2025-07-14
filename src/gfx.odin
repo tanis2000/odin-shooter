@@ -25,8 +25,8 @@ g_init :: proc() {
 		state.renderer.device,
 		&{
 			label = "Diffuse shader module",
-			nextInChain = &wgpu.ShaderModuleWGSLDescriptor {
-				sType = .ShaderModuleWGSLDescriptor,
+			nextInChain = &wgpu.ShaderSourceWGSL {
+				sType = .ShaderSourceWGSL,
 				code = #load("diffuse.wgsl"),
 			},
 		},
@@ -320,8 +320,8 @@ g_init_ui :: proc() {
 		state.renderer.device,
 		&{
       label = "UI Module",
-			nextInChain = &wgpu.ShaderModuleWGSLDescriptor {
-				sType = .ShaderModuleWGSLDescriptor,
+			nextInChain = &wgpu.ShaderSourceWGSL {
+				sType = .ShaderSourceWGSL,
 				code = #load("shader.wgsl"),
 			},
 		},
@@ -343,6 +343,7 @@ g_init_ui :: proc() {
 				buffers = raw_data(
 					[]wgpu.VertexBufferLayout {
 						{
+              stepMode = .Vertex,
 							arrayStride = 8,
 							attributeCount = 1,
 							attributes = &wgpu.VertexAttribute {
@@ -351,6 +352,7 @@ g_init_ui :: proc() {
 							},
 						},
 						{
+              stepMode = .Vertex,
 							arrayStride = 8,
 							attributeCount = 1,
 							attributes = &wgpu.VertexAttribute {
@@ -359,6 +361,7 @@ g_init_ui :: proc() {
 							},
 						},
 						{
+              stepMode = .Vertex,
 							arrayStride = 4,
 							attributeCount = 1,
 							attributes = &wgpu.VertexAttribute {

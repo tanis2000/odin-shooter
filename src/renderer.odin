@@ -32,8 +32,7 @@ r_init_and_run :: proc() {
 	wgpu.InstanceRequestAdapter(
 		r.instance,
 		&{compatibleSurface = r.surface},
-		handle_request_adapter,
-		nil,
+    { callback = handle_request_adapter },
 	)
 }
 
@@ -41,23 +40,25 @@ r_init_and_run :: proc() {
 handle_request_adapter :: proc "c" (
 	status: wgpu.RequestAdapterStatus,
 	adapter: wgpu.Adapter,
-	message: cstring,
-	userdata: rawptr,
+	message: string,
+	userdata1: rawptr,
+  userdata2: rawptr,
 ) {
 	context = state.ctx
 	if status != .Success || adapter == nil {
 		fmt.panicf("request adapter failure: [%v] %s", status, message)
 	}
 	state.renderer.adapter = adapter
-	wgpu.AdapterRequestDevice(adapter, nil, handle_request_device, nil)
+	wgpu.AdapterRequestDevice(adapter, nil, { callback = handle_request_device })
 }
 
 @(private = "file")
 handle_request_device :: proc "c" (
 	status: wgpu.RequestDeviceStatus,
 	device: wgpu.Device,
-	message: cstring,
-	userdata: rawptr,
+	message: string,
+	userdata1: rawptr,
+  userdata2: rawptr
 ) {
 	context = state.ctx
 	if status != .Success || device == nil {

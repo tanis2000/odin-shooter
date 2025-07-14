@@ -1,4 +1,4 @@
-//+build !js
+#+build !js
 package game
 
 import     "core:log"
